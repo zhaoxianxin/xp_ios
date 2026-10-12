@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDisplayName</key>
+	<string>巡朋机械</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -15,8 +19,6 @@
 	<string>需要访问相册，以便上传设备、车辆、司机和个人资料图片。</string>
 	<key>NSCameraUsageDescription</key>
 	<string>需要访问相机，用于拍照上传证件、车辆和头像资料。</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>需要访问麦克风，用于录制语音说明和上传媒体内容。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
