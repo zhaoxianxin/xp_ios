@@ -1,0 +1,8 @@
+platform :ios, '15.0'
+
+target 'XunPengMachine' do
+  # 高德地图 SDK（3D地图 + 定位 + 搜索）
+  pod 'AMap3DMap-NO-IDFA'
+  pod 'AMapLocation-NO-IDFA'
+  pod 'AMapSearch-NO-IDFA'
+end

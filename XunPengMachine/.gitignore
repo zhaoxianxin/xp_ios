@@ -1,0 +1,47 @@
+# macOS
+.DS_Store
+
+# Xcode build output
+build/
+DerivedData/
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Xcode per-user settings
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+
+# Xcode playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# fastlane generated files
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+
+# App packaging and symbol files
+*.hmap
+*.app
+
+# Local environment and temporary files
+*.swp
+*.tmp
+*.log
+*.orig
+*.xcuserdatad/
