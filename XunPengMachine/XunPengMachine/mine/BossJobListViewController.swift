@@ -160,14 +160,24 @@ extension BossJobListViewController: UITableViewDataSource, UITableViewDelegate 
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        showToast("活源详情开发中")
+        let detail = JobDetailViewController(id: jobs[indexPath.row].id, isOwner: true)
+        detail.onContentChanged = { [weak self] in
+            self?.noMore = false
+            self?.loadData(page: 1)
+        }
+        navigationController?.pushViewController(detail, animated: true)
     }
 
     private func handleCellAction(action: BossJobCell.Action, job: Job?) {
         guard let job = job else { return }
         switch action {
         case .edit:
-            showToast("编辑功能开发中")
+            let editor = PublishJobViewController(job: job)
+            editor.onSaved = { [weak self] in
+                self?.noMore = false
+                self?.loadData(page: 1)
+            }
+            navigationController?.pushViewController(editor, animated: true)
             Logger.shared.track("boss_job_click_edit", params: ["jobId": job.id])
         case .offline:
             AlertManager.shared.showAlert(title: "下架活源",

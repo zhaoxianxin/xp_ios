@@ -12,7 +12,9 @@ final class JobDetailViewController: BaseViewController {
 
     private let jobID: Int64
     private let vm: JobViewModel
+    private let isOwner: Bool
     private var didApplyJob = false
+    var onContentChanged: (() -> Void)?
 
     override var navStyle: NavStyle {
         get { .white }
@@ -50,8 +52,9 @@ final class JobDetailViewController: BaseViewController {
     private let bottomBar = UIView()
     private let callButton = AppButton(title: "拨打电话", style: .danger, height: 48)
 
-    init(id: Int64) {
+    init(id: Int64, isOwner: Bool = false) {
         self.jobID = id
+        self.isOwner = isOwner
         self.vm = JobViewModel()
         super.init(nibName: nil, bundle: nil)
     }
@@ -62,6 +65,7 @@ final class JobDetailViewController: BaseViewController {
         super.viewDidLoad()
         title = "求租详情"
         setupBackButton()
+        setupOwnerActionsIfNeeded()
         view.backgroundColor = AppColor.bg
 
         setupUI()
@@ -110,6 +114,7 @@ final class JobDetailViewController: BaseViewController {
 
         // 底部栏
         bottomBar.backgroundColor = AppColor.cardBg
+        bottomBar.isHidden = isOwner
         view.addSubview(bottomBar)
         callButton.addTarget(self, action: #selector(callTapped), for: .touchUpInside)
         bottomBar.addSubview(callButton)
@@ -173,7 +178,7 @@ final class JobDetailViewController: BaseViewController {
     // MARK: - 布局
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        let bottomBarH: CGFloat = 72.fit + Screen.bottomSafeH
+        let bottomBarH: CGFloat = isOwner ? 0 : 72.fit + Screen.bottomSafeH
         scrollView.frame = CGRect(x: 0, y: 0, width: view.w, height: view.h - bottomBarH)
         bottomBar.frame = CGRect(x: 0, y: view.h - bottomBarH, width: view.w, height: bottomBarH)
         layoutBottomBar()
@@ -254,6 +259,60 @@ final class JobDetailViewController: BaseViewController {
     }
 
     // MARK: - 事件
+    private func setupOwnerActionsIfNeeded() {
+        guard isOwner else { return }
+        let item = UIBarButtonItem(image: UIImage(systemName: "ellipsis"),
+                                   style: .plain,
+                                   target: self,
+                                   action: #selector(moreTapped))
+        item.accessibilityLabel = "更多操作"
+        navigationItem.rightBarButtonItem = item
+    }
+
+    @objc private func moreTapped() {
+        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "编辑", style: .default) { [weak self] _ in
+            self?.editJob()
+        })
+        sheet.addAction(UIAlertAction(title: "删除", style: .destructive) { [weak self] _ in
+            self?.confirmDeleteJob()
+        })
+        sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
+        sheet.popoverPresentationController?.barButtonItem = navigationItem.rightBarButtonItem
+        present(sheet, animated: true)
+    }
+
+    private func editJob() {
+        guard let job = vm.detail.value else {
+            showToast("详情加载中，请稍后重试")
+            return
+        }
+        let editor = PublishJobViewController(job: job)
+        editor.onSaved = { [weak self] in
+            guard let self else { return }
+            self.vm.loadDetail(id: self.jobID)
+            self.onContentChanged?()
+        }
+        navigationController?.pushViewController(editor, animated: true)
+    }
+
+    private func confirmDeleteJob() {
+        AlertManager.shared.showAlert(title: "删除活源",
+                                      message: "删除后无法恢复，确定删除这条活源吗？",
+                                      confirmTitle: "删除",
+                                      cancelTitle: "取消",
+                                      confirmColor: AppColor.danger,
+                                      onConfirm: { [weak self] in
+            guard let self else { return }
+            self.vm.deleteJob(id: self.jobID) { [weak self] success in
+                guard let self, success else { return }
+                Toast.shared.show("删除成功")
+                self.onContentChanged?()
+                self.navigationController?.popViewController(animated: true)
+            }
+        })
+    }
+
     @objc private func locationTapped() {
         // 跳转到地图全屏查看（暂用 Toast 提示）
         Toast.shared.show("查看地图位置")

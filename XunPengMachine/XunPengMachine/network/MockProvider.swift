@@ -108,7 +108,10 @@ final class MockProvider {
             {"frontImageUrl":"","rearImageUrl":"","plateNumber":"鲁BLXXX"}
             """)
 
-        case .publishJob, .publishCar, .publishDriver, .saveRecruitmentReminder, .feedback,
+        case .publishJob, .updateJob, .deleteJob,
+             .publishCar,
+             .publishDriver, .updateDriver, .deleteDriver,
+             .saveRecruitmentReminder, .feedback,
              .submitIdentityCertification, .submitDriverLicenseCertification,
              .submitVehicleLicenseCertification, .submitVehicleCertification:
             return wrap("{}", msg: "提交成功")

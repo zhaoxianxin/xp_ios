@@ -153,7 +153,12 @@ extension BossDriverListViewController: UITableViewDataSource, UITableViewDelega
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        showToast("招聘详情开发中")
+        let detail = DriverDetailViewController(id: String(posts[indexPath.row].id), isOwner: true)
+        detail.onContentChanged = { [weak self] in
+            self?.noMore = false
+            self?.loadData(page: 1)
+        }
+        navigationController?.pushViewController(detail, animated: true)
     }
 
     private func handle(action: BossDriverCell.Action, post: RecruitmentPost) {
@@ -163,7 +168,12 @@ extension BossDriverListViewController: UITableViewDataSource, UITableViewDelega
         case .found:
             showToast("标记已找到接口待接入")
         case .edit:
-            showToast("招聘编辑接口待接入")
+            let editor = PublishDriverViewController(driver: post)
+            editor.onSaved = { [weak self] in
+                self?.noMore = false
+                self?.loadData(page: 1)
+            }
+            navigationController?.pushViewController(editor, animated: true)
         }
         Logger.shared.track("boss_driver_action", params: [
             "driverId": post.id,

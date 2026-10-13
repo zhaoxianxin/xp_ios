@@ -59,4 +59,20 @@ final class DriverViewModel: BaseViewModel {
             }
         }
     }
+
+    func deleteDriver(id: Int64, completion: @escaping (Bool) -> Void) {
+        loading.onNext(true)
+        NetworkManager.shared.request(.deleteDriver(id: id), type: EmptyBO.self) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.loading.onNext(false)
+                switch result {
+                case .success:
+                    completion(true)
+                case .failure(let error):
+                    Toast.shared.show(error.errorDescription ?? "删除失败")
+                    completion(false)
+                }
+            }
+        }
+    }
 }

@@ -38,6 +38,7 @@ struct Job: Codable {
     var userId: Int64?
     var title: String
     var category: String
+    var workCityId: Int64?
     var cityName: String?
     var workAddress: String?
     var workLat: Double?
@@ -55,13 +56,13 @@ struct Job: Codable {
     var createTime: String
 
     private enum CodingKeys: String, CodingKey {
-        case id, userId, title, category, cityName, workAddress, workLat, workLng
+        case id, userId, title, category, workCityId, cityName, workAddress, workLat, workLng
         case rentStartDate, rentEndDate, rentTimeSlot, durationDays, rentAmount
         case invoiceType, description, contactMobile, businessStatus, viewCount, createTime
     }
 
     init(id: Int64, userId: Int64? = nil, title: String, category: String,
-         cityName: String? = nil, workAddress: String? = nil,
+         workCityId: Int64? = nil, cityName: String? = nil, workAddress: String? = nil,
          workLat: Double? = nil, workLng: Double? = nil,
          rentStartDate: String? = nil, rentEndDate: String? = nil,
          rentTimeSlot: String? = nil, durationDays: Int, rentAmount: Double,
@@ -72,6 +73,7 @@ struct Job: Codable {
         self.userId = userId
         self.title = title
         self.category = category
+        self.workCityId = workCityId
         self.cityName = cityName
         self.workAddress = workAddress
         self.workLat = workLat
@@ -95,6 +97,7 @@ struct Job: Codable {
         userId = try container.decodeIfPresent(Int64.self, forKey: .userId)
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? ""
+        workCityId = try container.decodeIfPresent(Int64.self, forKey: .workCityId)
         cityName = try container.decodeIfPresent(String.self, forKey: .cityName)
         workAddress = try container.decodeIfPresent(String.self, forKey: .workAddress)
         workLat = try container.decodeIfPresent(Double.self, forKey: .workLat)
@@ -225,6 +228,7 @@ struct RecruitmentPost: Codable {
     var userId: Int64?
     var title: String
     var category: String
+    var workCityId: Int64?
     var cityName: String?
     var workAddress: String?
     var workType: Int
@@ -238,12 +242,12 @@ struct RecruitmentPost: Codable {
     var createTime: String
 
     private enum CodingKeys: String, CodingKey {
-        case id, userId, title, category, cityName, workAddress, workType, workTypeName
+        case id, userId, title, category, workCityId, cityName, workAddress, workType, workTypeName
         case salaryMin, salaryMax, salaryText, description, contactMobile, viewCount, createTime
     }
 
     init(id: Int64, userId: Int64? = nil, title: String, category: String,
-         cityName: String? = nil, workAddress: String? = nil,
+         workCityId: Int64? = nil, cityName: String? = nil, workAddress: String? = nil,
          workType: Int, workTypeName: String? = nil,
          salaryMin: Double? = nil, salaryMax: Double? = nil, salaryText: String? = nil,
          description: String, contactMobile: String? = nil,
@@ -252,6 +256,7 @@ struct RecruitmentPost: Codable {
         self.userId = userId
         self.title = title
         self.category = category
+        self.workCityId = workCityId
         self.cityName = cityName
         self.workAddress = workAddress
         self.workType = workType
@@ -278,6 +283,7 @@ struct RecruitmentPost: Codable {
         userId = try container.decodeIfPresent(Int64.self, forKey: .userId)
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? ""
+        workCityId = try container.decodeIfPresent(Int64.self, forKey: .workCityId)
         cityName = try container.decodeIfPresent(String.self, forKey: .cityName)
         workAddress = try container.decodeIfPresent(String.self, forKey: .workAddress)
         workType = try container.decodeIfPresent(Int.self, forKey: .workType) ?? 0

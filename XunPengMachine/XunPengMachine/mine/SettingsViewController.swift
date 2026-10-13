@@ -2,194 +2,207 @@
 //  SettingsViewController.swift
 //  XunPengMachine
 //
-//  我的-设置中心：缓存清理、关于、反馈、退出登录、注销账号
+//  我的-设置中心：协议、隐私、第三方 SDK、消息震动、退出与账号注销
 //
 
 import UIKit
 
 final class SettingsViewController: BaseViewController {
 
-    // MARK: - UI
-    private let scrollView = UIScrollView()
-    private let menuContainer = UIView()
-
-    private struct MenuItem {
-        let icon: String
-        let title: String
-        let accessory: String   // 右侧辅助文字，空则显示箭头
-        let action: () -> Void
+    private enum RowTag: Int {
+        case serviceAgreement = 1
+        case privacyPolicy
+        case thirdPartySDK
+        case logout
+        case cancelAccount
     }
 
-    private var menuItems: [MenuItem] = []
+    private enum PreferenceKey {
+        static let messageVibrationEnabled = "settings_message_vibration_enabled"
+        static let messageVibrationInitialized = "settings_message_vibration_initialized"
+    }
 
-    // MARK: - 生命周期
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
+    private let vibrationSwitch = UISwitch()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "设置中心"
-        navStyle = .white
-        setupBackButton()
-        applyNavStyle()
+        setupNavigation()
         setupUI()
-        rebuildMenu()
-        layoutMenu()
+        buildContent()
     }
 
-    private func applyNavStyle() {
-        navigationController?.setNavigationBarHidden(false, animated: false)
-        navigationController?.navigationBar.barTintColor = .white
-        navigationController?.navigationBar.tintColor = AppColor.textMain
-        navigationController?.navigationBar.titleTextAttributes = [
-            .foregroundColor: AppColor.textMain, .font: AppFont.navTitle
-        ]
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        scrollView.frame = view.bounds
+        contentView.frame = CGRect(x: 0, y: 0, width: view.w,
+                                   height: max(contentView.h, scrollView.h + 1))
+        scrollView.contentSize = contentView.frame.size
     }
 
-    // MARK: - UI 搭建
+    private func setupNavigation() {
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "chevron.left"),
+            style: .plain,
+            target: self,
+            action: #selector(backTapped)
+        )
+    }
+
     private func setupUI() {
         view.backgroundColor = AppColor.bg
-
-        view.addSubview(scrollView)
-        scrollView.frame = CGRect(x: 0, y: Screen.topSafeH,
-                                  width: Screen.width,
-                                  height: Screen.height - Screen.topSafeH)
         scrollView.alwaysBounceVertical = true
-
-        scrollView.addSubview(menuContainer)
+        scrollView.showsVerticalScrollIndicator = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
     }
 
-    private func rebuildMenu() {
-        let cacheSize = currentCacheSize()
-        menuItems = [
-            MenuItem(icon: "trash", title: "清除缓存", accessory: cacheSize) { [weak self] in
-                self?.clearCache()
-            },
-            MenuItem(icon: "info.circle", title: "关于我们", accessory: "") { [weak self] in
-                self?.showAbout()
-            },
-            MenuItem(icon: "envelope", title: "意见反馈", accessory: "") { [weak self] in
-                self?.navigationController?.pushViewController(FeedbackViewController(), animated: true)
-            }
+    private func buildContent() {
+        contentView.removeSubviews()
+
+        let rowHeight: CGFloat = 52.fit
+        var y: CGFloat = 12.fit
+
+        let agreementRows: [(String, RowTag)] = [
+            ("用户协议", .serviceAgreement),
+            ("隐私政策", .privacyPolicy),
+            ("第三方 SDK", .thirdPartySDK)
         ]
-    }
-
-    private func layoutMenu() {
-        menuContainer.removeSubviews()
-        let padding: CGFloat = 12.fit
-        let cardW = Screen.width - padding * 2
-        let rowH: CGFloat = 50.fit
-        var y: CGFloat = 0
-
-        for (idx, item) in menuItems.enumerated() {
-            let row = makeMenuRow(item: item)
-            row.tag = idx
-            menuContainer.addSubview(row)
-            row.frame = CGRect(x: 0, y: y, width: cardW, height: rowH)
-            row.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(menuTapped(_:))))
-            y += rowH
-            if idx < menuItems.count - 1 {
-                let line = Separator()
-                menuContainer.addSubview(line)
-                line.frame = CGRect(x: 44.fit, y: y - 0.25, width: cardW - 44.fit, height: 0.5)
+        for (index, item) in agreementRows.enumerated() {
+            let row = makeActionRow(title: item.0, tag: item.1, showsArrow: true)
+            row.frame = CGRect(x: 0, y: y, width: Screen.width, height: rowHeight)
+            contentView.addSubview(row)
+            y += rowHeight
+            if index < agreementRows.count - 1 {
+                addSeparator(y: y, inset: 12.fit)
             }
         }
 
-        // 注销账号（红色文字按钮，独立卡）
-        y += 16
-        let cancelAccountBtn = makeTextButton(title: "注销账号", color: AppColor.danger)
-        cancelAccountBtn.tag = 100
-        menuContainer.addSubview(cancelAccountBtn)
-        cancelAccountBtn.frame = CGRect(x: 0, y: y, width: cardW, height: rowH)
-        cancelAccountBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cancelAccountTapped)))
-        cancelAccountBtn.isUserInteractionEnabled = true
-        y += rowH
+        y += 12.fit
+        let vibrationRow = makeVibrationRow()
+        vibrationRow.frame = CGRect(x: 0, y: y, width: Screen.width, height: rowHeight)
+        contentView.addSubview(vibrationRow)
+        y += rowHeight
 
-        // 退出登录按钮
-        y += 40
-        let logoutBtn = AppButton(title: "退出登录", style: .danger, height: 44)
-        menuContainer.addSubview(logoutBtn)
-        logoutBtn.frame = CGRect(x: 0, y: y, width: cardW, height: 44)
-        logoutBtn.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
-        y += 44 + 40
+        y += 34.fit
+        let logoutRow = makeActionRow(title: "退出登录", tag: .logout,
+                                      showsArrow: false, centered: true)
+        logoutRow.frame = CGRect(x: 0, y: y, width: Screen.width, height: rowHeight)
+        contentView.addSubview(logoutRow)
+        y += rowHeight
 
-        menuContainer.frame = CGRect(x: padding, y: 12, width: cardW, height: y)
-        scrollView.contentSize = CGSize(width: Screen.width, height: y + 24)
+        let cancelRow = makeActionRow(title: "注销账号", tag: .cancelAccount,
+                                      showsArrow: false, centered: true,
+                                      titleColor: AppColor.textHint)
+        cancelRow.frame = CGRect(x: 0, y: y, width: Screen.width, height: rowHeight)
+        contentView.addSubview(cancelRow)
+        y += rowHeight + 24.fit
+
+        contentView.frame = CGRect(x: 0, y: 0, width: Screen.width, height: y)
     }
 
-    private func makeMenuRow(item: MenuItem) -> UIView {
-        let container = UIView()
-        container.backgroundColor = AppColor.cardBg
-        container.layer.cornerRadius = 10
-
-        let icon = UIImageView(image: UIImage(systemName: item.icon)?.withRenderingMode(.alwaysTemplate))
-        icon.tintColor = AppColor.primary
-        container.addSubview(icon)
-        icon.frame = CGRect(x: 12.fit, y: (50.fit - 18.fit) / 2, width: 18.fit, height: 18.fit)
-
-        let title = UILabel.make(item.title, font: AppFont.body, color: AppColor.textMain)
-        container.addSubview(title)
-        title.frame = CGRect(x: icon.right + 10.fit, y: 0, width: 160.fit, height: 50.fit)
-
-        if item.accessory.isEmpty {
-            let arrow = UIImageView(image: UIImage(systemName: "chevron.right")?.withRenderingMode(.alwaysTemplate))
+    private func makeActionRow(title: String, tag: RowTag, showsArrow: Bool,
+                               centered: Bool = false,
+                               titleColor: UIColor = AppColor.textMain) -> UIButton {
+        let button = UIButton(type: .custom)
+        button.tag = tag.rawValue
+        button.backgroundColor = .white
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(titleColor, for: .normal)
+        button.setTitleColor(titleColor.withAlphaComponent(0.55), for: .highlighted)
+        button.titleLabel?.font = AppFont.body
+        button.contentHorizontalAlignment = centered ? .center : .left
+        if !centered {
+            button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 12.fit, bottom: 0, right: 42.fit)
+        }
+        if showsArrow {
+            let arrow = UIImageView(image: UIImage(systemName: "chevron.right")?
+                .withRenderingMode(.alwaysTemplate))
             arrow.tintColor = AppColor.textHint
-            container.addSubview(arrow)
-            arrow.frame = CGRect(x: Screen.width - 24.fit * 2 - 8.fit, y: (50.fit - 12) / 2, width: 8, height: 12)
-        } else {
-            let acc = UILabel.make(item.accessory, font: AppFont.small, color: AppColor.textHint, alignment: .right)
-            container.addSubview(acc)
-            acc.frame = CGRect(x: Screen.width - 24.fit * 2 - 80.fit, y: 0, width: 80.fit, height: 50.fit)
+            arrow.contentMode = .scaleAspectFit
+            arrow.frame = CGRect(x: Screen.width - 24.fit, y: 19.fit,
+                                 width: 8.fit, height: 14.fit)
+            arrow.isUserInteractionEnabled = false
+            button.addSubview(arrow)
         }
-        return container
+        button.addTarget(self, action: #selector(actionRowTapped(_:)), for: .touchUpInside)
+        return button
     }
 
-    private func makeTextButton(title: String, color: UIColor) -> UIView {
-        let container = UIView()
-        container.backgroundColor = AppColor.cardBg
-        container.layer.cornerRadius = 10
-        let label = UILabel.make(title, font: AppFont.body, color: color, alignment: .center)
-        container.addSubview(label)
-        label.frame = CGRect(x: 0, y: 0, width: Screen.width - 24.fit, height: 50.fit)
-        return container
+    private func makeVibrationRow() -> UIView {
+        let row = UIView()
+        row.backgroundColor = .white
+
+        let titleLabel = UILabel.make("消息震动", font: AppFont.body, color: AppColor.textMain)
+        titleLabel.frame = CGRect(x: 12.fit, y: 0, width: 150.fit, height: 52.fit)
+        row.addSubview(titleLabel)
+
+        let defaults = UserDefaults.standard
+        if !defaults.bool(forKey: PreferenceKey.messageVibrationInitialized) {
+            defaults.set(true, forKey: PreferenceKey.messageVibrationEnabled)
+            defaults.set(true, forKey: PreferenceKey.messageVibrationInitialized)
+        }
+        vibrationSwitch.isOn = defaults.bool(forKey: PreferenceKey.messageVibrationEnabled)
+        vibrationSwitch.onTintColor = AppColor.primary
+        vibrationSwitch.addTarget(self, action: #selector(vibrationChanged), for: .valueChanged)
+        vibrationSwitch.sizeToFit()
+        vibrationSwitch.frame.origin = CGPoint(
+            x: Screen.width - vibrationSwitch.w - 12.fit,
+            y: (52.fit - vibrationSwitch.h) / 2
+        )
+        row.addSubview(vibrationSwitch)
+        return row
     }
 
-    // MARK: - 缓存
-    private func currentCacheSize() -> String {
-        let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        var size: UInt64 = 0
-        if let enumerator = FileManager.default.enumerator(at: cacheURL,
-                                                            includingPropertiesForKeys: [.fileSizeKey]) {
-            for case let url as URL in enumerator {
-                size += UInt64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+    private func addSeparator(y: CGFloat, inset: CGFloat) {
+        let line = Separator()
+        line.frame = CGRect(x: inset, y: y - 0.5,
+                            width: Screen.width - inset, height: 0.5)
+        contentView.addSubview(line)
+    }
+
+    @objc private func actionRowTapped(_ sender: UIButton) {
+        guard let tag = RowTag(rawValue: sender.tag) else { return }
+        switch tag {
+        case .serviceAgreement:
+            openAgreement(urlString: Constants.serviceAgreementURL, title: "用户协议")
+        case .privacyPolicy:
+            openAgreement(urlString: Constants.privacyPolicyURL, title: "隐私政策")
+        case .thirdPartySDK:
+            navigationController?.pushViewController(ThirdPartySDKListViewController(), animated: true)
+        case .logout:
+            confirmLogout()
+        case .cancelAccount:
+            let controller = AccountCancellationViewController()
+            controller.onConfirmCancellation = { [weak self] in
+                self?.performCancelAccount()
             }
+            navigationController?.pushViewController(controller, animated: true)
         }
-        if size < 1024 { return "\(size)B" }
-        if size < 1024 * 1024 { return "\(size / 1024)KB" }
-        return String(format: "%.1fM", Double(size) / 1024.0 / 1024.0)
     }
 
-    private func clearCache() {
-        let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.removeItem(at: cacheURL)
-        try? FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
-        showToast("已清理")
-        rebuildMenu()
-        layoutMenu()
-        Logger.shared.track("settings_clear_cache")
+    @objc private func vibrationChanged() {
+        UserDefaults.standard.set(vibrationSwitch.isOn,
+                                  forKey: PreferenceKey.messageVibrationEnabled)
+        Logger.shared.track("settings_message_vibration", params: ["enabled": vibrationSwitch.isOn])
     }
 
-    // MARK: - 关于我们
-    private func showAbout() {
-        AlertManager.shared.showTip("迅鹏机器 v1.0.0\n让物流找人找车更高效",
-                                    title: "关于我们")
-        Logger.shared.track("settings_about")
+    private func openAgreement(urlString: String, title: String) {
+        guard let url = URL(string: urlString),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http" else {
+            Toast.shared.show("协议地址暂未配置")
+            return
+        }
+        let controller = PNSPrivacyWebViewController(urlString: urlString, title: title)
+        let navigationController = UINavigationController(rootViewController: controller)
+        navigationController.modalPresentationStyle = .fullScreen
+        present(navigationController, animated: true)
     }
 
-    // MARK: - 事件
-    @objc private func menuTapped(_ gesture: UITapGestureRecognizer) {
-        guard let idx = gesture.view?.tag, idx < menuItems.count else { return }
-        menuItems[idx].action()
-    }
-
-    @objc private func logoutTapped() {
+    private func confirmLogout() {
         AlertManager.shared.showAlert(title: "退出登录",
                                       message: "确定要退出当前账号吗？",
                                       confirmTitle: "退出",
@@ -201,19 +214,6 @@ final class SettingsViewController: BaseViewController {
         Logger.shared.track("settings_click_logout")
     }
 
-    @objc private func cancelAccountTapped() {
-        AlertManager.shared.showAlert(title: "注销账号",
-                                      message: "注销后账号将无法恢复，所有数据将被清除，确定要注销吗？",
-                                      confirmTitle: "确定注销",
-                                      cancelTitle: "取消",
-                                      confirmColor: AppColor.danger,
-                                      onConfirm: { [weak self] in
-            self?.performCancelAccount()
-        })
-        Logger.shared.track("settings_click_cancel_account")
-    }
-
-    // MARK: - 退出 / 注销
     private func performLogout() {
         TokenManager.shared.clear()
         switchToLogin()
@@ -227,10 +227,58 @@ final class SettingsViewController: BaseViewController {
         }
     }
 
-    /// 切回登录页
     private func switchToLogin() {
         if let window = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.windows.first {
             window.rootViewController = LoginViewController()
         }
+    }
+}
+
+private final class ThirdPartySDKListViewController: BaseViewController {
+
+    private let scrollView = UIScrollView()
+    private let contentLabel = UILabel()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "第三方 SDK"
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "chevron.left"),
+            style: .plain,
+            target: self,
+            action: #selector(backTapped)
+        )
+
+        contentLabel.numberOfLines = 0
+        contentLabel.font = AppFont.sub
+        contentLabel.textColor = AppColor.textMain
+        contentLabel.text = """
+        为实现应用相关功能，我们接入了以下第三方 SDK：
+
+        1. 高德地图 SDK
+        使用目的：提供地图展示、地点搜索与定位相关能力。
+        涉及信息：位置信息、设备及网络信息（以实际调用和授权为准）。
+
+        2. 阿里云号码认证服务 SDK
+        使用目的：提供本机号码一键登录与运营商认证能力。
+        涉及信息：手机号码认证信息、设备及网络信息（以实际调用和授权为准）。
+
+        第三方 SDK 仅在实现对应功能所必需的范围内启用。详细的数据处理规则、共享范围和联系方式请查阅《隐私政策》。
+        """
+
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentLabel)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        scrollView.frame = view.bounds
+        let inset: CGFloat = 16.fit
+        let width = view.w - inset * 2
+        let height = contentLabel.sizeThatFits(
+            CGSize(width: width, height: .greatestFiniteMagnitude)
+        ).height
+        contentLabel.frame = CGRect(x: inset, y: 18.fit, width: width, height: height)
+        scrollView.contentSize = CGSize(width: view.w, height: height + 36.fit)
     }
 }

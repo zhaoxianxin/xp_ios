@@ -8,7 +8,13 @@
 import Foundation
 
 /// 空响应体（接口返回 data = {} ）
-struct EmptyBO: Codable {}
+struct EmptyBO: Codable {
+    init() {}
+    init(from decoder: Decoder) throws {
+        // 新增、修改、删除接口可能返回 {}、true 或数字，业务成功只看外层 code。
+    }
+    func encode(to encoder: Encoder) throws {}
+}
 
 final class PublishViewModel: BaseViewModel {
 
@@ -20,6 +26,15 @@ final class PublishViewModel: BaseViewModel {
         submit(.publishJob(params: params))
     }
 
+    /// 保存活源；有 editingID 时走修改接口。
+    func saveJob(params: [String: Any], editingID: Int64?) {
+        if let editingID {
+            submit(.updateJob(id: editingID, params: params))
+        } else {
+            submit(.publishJob(params: params))
+        }
+    }
+
     /// 发布设备
     func publishCar(params: [String: Any]) {
         submit(.publishCar(params: params))
@@ -28,6 +43,15 @@ final class PublishViewModel: BaseViewModel {
     /// 发布招司机
     func publishDriver(params: [String: Any]) {
         submit(.publishDriver(params: params))
+    }
+
+    /// 保存招聘；有 editingID 时走修改接口。
+    func saveDriver(params: [String: Any], editingID: Int64?) {
+        if let editingID {
+            submit(.updateDriver(id: editingID, params: params))
+        } else {
+            submit(.publishDriver(params: params))
+        }
     }
 
     private func submit(_ router: APIRouter) {

@@ -10,6 +10,8 @@ import UIKit
 final class PublishDriverViewController: BaseViewController {
 
     private let vm = PublishViewModel()
+    private let editingDriver: Driver?
+    var onSaved: (() -> Void)?
 
     // MARK: State
     private var equipmentName: String = ""
@@ -44,13 +46,21 @@ final class PublishDriverViewController: BaseViewController {
                                            placeholder: "请描述招聘司机需求...",
                                            maxCount: maxDescCount)
 
+    init(driver: Driver? = nil) {
+        self.editingDriver = driver
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "招聘司机"
+        title = editingDriver == nil ? "招聘司机" : "修改招聘"
         navStyle = .white
         setupBackButton()
         view.backgroundColor = AppColor.bg
         setupUI()
+        applyEditingDataIfNeeded()
         bindViewModel()
     }
 
@@ -102,6 +112,31 @@ final class PublishDriverViewController: BaseViewController {
         view.addSubview(submitBtn)
     }
 
+    private func applyEditingDataIfNeeded() {
+        guard let driver = editingDriver else { return }
+        titleRow.setValue(driver.title)
+        equipmentName = driver.category
+        equipmentRow.setValue(driver.category)
+        phoneRow.setValue(driver.contactMobile ?? "")
+        cityId = driver.workCityId
+        cityRow.setValue(driver.cityName ?? "")
+        addressRow.setValue(driver.workAddress ?? "")
+        workType = driver.workType
+        workTypeRow.selectIndex(max(0, min(2, driver.workType - 1)))
+        if let salaryMin = driver.salaryMin {
+            salaryMinRow.setValue(amountText(salaryMin))
+        }
+        if let salaryMax = driver.salaryMax {
+            salaryMaxRow.setValue(amountText(salaryMax))
+        }
+        descRow.setText(driver.description)
+        submitBtn.setTitle("保存修改", for: .normal)
+    }
+
+    private func amountText(_ amount: Double) -> String {
+        amount.rounded() == amount ? String(Int(amount)) : String(amount)
+    }
+
     @objc private func submitTapped() {
         view.endEditing(true)
         let title = titleRow.getValue().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -110,7 +145,7 @@ final class PublishDriverViewController: BaseViewController {
         guard !equipmentName.isEmpty else { showToast("请选择机械类型"); return }
         let phoneVal = phoneRow.getValue()
         guard phoneVal.isValidPhone else { showToast("请输入正确的联系电话"); return }
-        guard let cityId = cityId else { showToast("请选择工作地点"); return }
+        if editingDriver == nil, cityId == nil { showToast("请选择工作地点"); return }
         let desc = descRow.getText()
         guard !desc.isEmpty else { showToast("请输入招聘信息"); return }
 
@@ -128,18 +163,19 @@ final class PublishDriverViewController: BaseViewController {
         var params: [String: Any] = [
             "title": title,
             "category": equipmentName,
-            "workCityId": cityId,
             "workType": workType,
             "description": desc,
             "contactMobile": phoneVal
         ]
+        if let cityId { params["workCityId"] = cityId }
         let address = addressRow.getValue().trimmingCharacters(in: .whitespacesAndNewlines)
         if !address.isEmpty { params["workAddress"] = address }
         if let salaryMin = salaryMin { params["salaryMin"] = salaryMin }
         if let salaryMax = salaryMax { params["salaryMax"] = salaryMax }
 
-        Logger.shared.track("publish_driver_submit")
-        vm.publishDriver(params: params)
+        let isEditing = editingDriver != nil
+        Logger.shared.track(isEditing ? "update_driver_submit" : "publish_driver_submit")
+        vm.saveDriver(params: params, editingID: editingDriver?.id)
     }
 
     private func bindViewModel() {
@@ -149,9 +185,10 @@ final class PublishDriverViewController: BaseViewController {
             self?.submitBtn.alpha = loading ? 0.6 : 1
         }))
         disposables.append(vm.success.subscribe(onNext: { [weak self] success in
-            guard success else { return }
-            Toast.shared.show("发布成功")
-            self?.navigationController?.popViewController(animated: true)
+            guard let self, success else { return }
+            Toast.shared.show(self.editingDriver == nil ? "发布成功" : "修改成功")
+            self.onSaved?()
+            self.navigationController?.popViewController(animated: true)
         }))
     }
 
@@ -486,6 +523,11 @@ private class TextareaRow: UIView, UITextViewDelegate {
     required init?(coder: NSCoder) { fatalError() }
 
     func getText() -> String { textView.text ?? "" }
+
+    func setText(_ text: String) {
+        textView.text = String(text.prefix(maxCount))
+        textViewDidChange(textView)
+    }
 
     func textViewDidChange(_ textView: UITextView) {
         let text = textView.text ?? ""

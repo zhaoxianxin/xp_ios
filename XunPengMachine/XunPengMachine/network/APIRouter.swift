@@ -34,8 +34,12 @@ enum APIRouter {
     /// 临时接口：开通或重新开通招聘工作提醒，正式地址确定后替换 path 即可。
     case saveRecruitmentReminder(params: [String: Any])
     case publishJob(params: [String: Any])
+    case updateJob(id: Int64, params: [String: Any])
+    case deleteJob(id: Int64)
     case publishCar(params: [String: Any])
     case publishDriver(params: [String: Any])
+    case updateDriver(id: Int64, params: [String: Any])
+    case deleteDriver(id: Int64)
     case cities
     case equipmentTypes
     case feedback(content: String)
@@ -67,8 +71,12 @@ enum APIRouter {
         case .systemMessages:   return "/post/message/page"
         case .saveRecruitmentReminder: return "/post/recruit/reminder/open"
         case .publishJob:       return "/post/job/publish"
+        case .updateJob(let id, _): return "/post/job/update?id=\(id)"
+        case .deleteJob(let id): return "/post/job?id=\(id)"
         case .publishCar:       return "/post/equipment/publish"
         case .publishDriver:    return "/post/recruit/publish"
+        case .updateDriver(let id, _): return "/post/recruit/update?id=\(id)"
+        case .deleteDriver(let id): return "/post/recruit?id=\(id)"
         case .cities:           return "/common/cities"
         case .equipmentTypes:   return "/post/meta/categories"
         case .feedback:         return "/user/feedback"
@@ -90,6 +98,10 @@ enum APIRouter {
              .submitDriverLicenseCertification, .submitVehicleLicenseCertification,
              .submitVehicleCertification:
             return .post
+        case .updateJob, .updateDriver:
+            return .put
+        case .deleteJob, .deleteDriver:
+            return .delete
         default:
             return .get
         }
@@ -130,6 +142,8 @@ enum APIRouter {
         case .publishJob(let p), .publishCar(let p), .publishDriver(let p),
              .saveRecruitmentReminder(let p):
             return p
+        case .updateJob(_, let params), .updateDriver(_, let params):
+            return params
         case .feedback(let content):
             return ["content": content]
         case .submitIdentityCertification(let p),

@@ -11,6 +11,8 @@ import UIKit
 final class PublishJobViewController: BaseViewController {
     
     private let vm = PublishViewModel()
+    private let editingJob: Job?
+    var onSaved: (() -> Void)?
 
     // MARK: State
     private var equipmentName: String = ""
@@ -48,13 +50,21 @@ final class PublishJobViewController: BaseViewController {
     private lazy var descRow = TextareaRow(title: "用车描述说明", required: true,
                                            placeholder: "请输入描述说明", maxCount: maxDescCount)
 
+    init(job: Job? = nil) {
+        self.editingJob = job
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "发布求租"
+        title = editingJob == nil ? "发布求租" : "修改求租"
         navStyle = .white
         setupBackButton()
         view.backgroundColor = AppColor.bg
         setupUI()
+        applyEditingDataIfNeeded()
         bindViewModel()
     }
 
@@ -109,6 +119,30 @@ final class PublishJobViewController: BaseViewController {
         view.addSubview(submitBtn)
     }
 
+    private func applyEditingDataIfNeeded() {
+        guard let job = editingJob else { return }
+        titleRow.setValue(job.title)
+        equipmentName = job.category
+        equipmentRow.setValue(job.category)
+        phoneRow.setValue(job.contactMobile ?? "")
+        cityId = job.workCityId
+        cityRow.setValue(job.cityName ?? "")
+        addressRow.setValue(job.workAddress ?? "")
+        rentStartDate = job.rentStartDate ?? ""
+        rentTimeSlot = job.rentTimeSlot ?? ""
+        let rentalTime = [job.rentStartDate, job.rentTimeSlot]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: "  ")
+        rentDateRow.setValue(rentalTime)
+        durationRow.setValue(String(job.durationDays))
+        priceRow.setValue(job.rentAmountText)
+        invoiceType = job.invoiceType ?? 0
+        invoiceRow.selectIndex(invoiceType)
+        descRow.setText(job.description)
+        submitBtn.setTitle("保存修改", for: .normal)
+    }
+
     @objc private func submitTapped() {
         view.endEditing(true)
         let title = titleRow.getValue().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -117,7 +151,7 @@ final class PublishJobViewController: BaseViewController {
         guard !equipmentName.isEmpty else { showToast("请选择机械类型"); return }
         let phoneVal = phoneRow.getValue()
         guard phoneVal.isValidPhone else { showToast("请输入正确的联系电话"); return }
-        guard let cityId = cityId else { showToast("请选择施工地点"); return }
+        if editingJob == nil, cityId == nil { showToast("请选择施工地点"); return }
         let address = addressRow.getValue().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !address.isEmpty else { showToast("请输入施工详细地址"); return }
         guard !rentStartDate.isEmpty else { showToast("请选择租车时间"); return }
@@ -136,7 +170,6 @@ final class PublishJobViewController: BaseViewController {
         var params: [String: Any] = [
             "title": title,
             "category": equipmentName,
-            "workCityId": cityId,
             "workAddress": address,
             "rentStartDate": rentStartDate,
             "rentTimeSlot": rentTimeSlot,
@@ -146,8 +179,10 @@ final class PublishJobViewController: BaseViewController {
             "description": desc,
             "contactMobile": phoneVal
         ]
-        Logger.shared.track("publish_job_submit")
-        vm.publishJob(params: params)
+        if let cityId { params["workCityId"] = cityId }
+        let isEditing = editingJob != nil
+        Logger.shared.track(isEditing ? "update_job_submit" : "publish_job_submit")
+        vm.saveJob(params: params, editingID: editingJob?.id)
     }
 
     private func bindViewModel() {
@@ -157,9 +192,10 @@ final class PublishJobViewController: BaseViewController {
             self?.submitBtn.alpha = loading ? 0.6 : 1
         }))
         disposables.append(vm.success.subscribe(onNext: { [weak self] success in
-            guard success else { return }
-            Toast.shared.show("发布成功")
-            self?.navigationController?.popViewController(animated: true)
+            guard let self, success else { return }
+            Toast.shared.show(self.editingJob == nil ? "发布成功" : "修改成功")
+            self.onSaved?()
+            self.navigationController?.popViewController(animated: true)
         }))
     }
 
@@ -509,6 +545,11 @@ private class TextareaRow: UIView, UITextViewDelegate {
     required init?(coder: NSCoder) { fatalError() }
 
     func getText() -> String { textView.text ?? "" }
+
+    func setText(_ text: String) {
+        textView.text = String(text.prefix(maxCount))
+        textViewDidChange(textView)
+    }
 
     func textViewDidChange(_ textView: UITextView) {
         let text = textView.text ?? ""
