@@ -13,21 +13,31 @@ struct NoData: Codable {}
 final class MineViewModel: BaseViewModel {
 
     /// 当前登录用户资料
-    let profile = Observable.create(User?.none)
+    let profile = UserManager.shared.user
 
     /// 拉取用户资料
     func loadProfile() {
         loading.onNext(true)
-        NetworkManager.shared.request(.mineProfile, type: User.self) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.loading.onNext(false)
-                switch result {
-                case .success(let user):
-                    self.profile.onNext(user)
-                case .failure(let error):
-                    Logger.shared.error("load profile failed: \(error.errorDescription ?? "")")
-                }
+        UserManager.shared.fetchUser { [weak self] result in
+            guard let self = self else { return }
+            self.loading.onNext(false)
+            if case .failure(let error) = result {
+                Logger.shared.error("load profile failed: \(error.errorDescription ?? "")")
+            }
+        }
+    }
+
+    /// 切换当前身份，接口直接返回切换后的完整个人资料。
+    func switchIdentity(to identityType: Int, completion: @escaping (Result<Void, APIError>) -> Void) {
+        loading.onNext(true)
+        UserManager.shared.switchIdentity(to: identityType) { [weak self] result in
+            guard let self = self else { return }
+            self.loading.onNext(false)
+            switch result {
+            case .success:
+                completion(.success(()))
+            case .failure(let error):
+                completion(.failure(error))
             }
         }
     }

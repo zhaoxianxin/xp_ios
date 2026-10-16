@@ -31,6 +31,7 @@ final class TokenManager {
     func clear() {
         accessToken = nil
         refreshToken = nil
+        UserManager.shared.clear()
     }
 
     // MARK: - 刷新去重

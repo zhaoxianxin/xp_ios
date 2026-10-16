@@ -27,7 +27,7 @@ final class PublishEntryViewController: BaseViewController {
     private let stackView = UIStackView()
 
     /// 用户角色
-    private var role: String { User.template().role }
+    private var role: String { UserManager.shared.currentUser?.role ?? "boss" }
 
     /// 行数（角色行 + 招聘发布行）
     private var rowCount: Int { 2 }
@@ -83,7 +83,7 @@ final class PublishEntryViewController: BaseViewController {
                    color: AppColor.danger,
                    action: #selector(carTapped))
         }
-        // 第二行：招聘发布（所有角色通用）
+        // 第二行：招聘发布（boss, car）
         addRow(category: "招聘发布",
                title: "找驾驶员",
                subtitle: "（招聘司机）",

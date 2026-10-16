@@ -11,6 +11,8 @@ final class MockProvider {
     static let shared = MockProvider()
     private init() {}
 
+    private var currentIdentityType = 1
+
     /// 返回对应路由的 mock JSON Data
     func mockData(for router: APIRouter) -> Data? {
         let json = body(for: router)
@@ -65,7 +67,11 @@ final class MockProvider {
             return wrap(Driver.detail(id: id).toJson())
 
         case .mineProfile:
-            return wrap(User.template().toJson())
+            return wrap(currentUser().toJson())
+
+        case .switchIdentity(let identityType):
+            currentIdentityType = identityType
+            return wrap(currentUser().toJson(), msg: "切换成功")
 
         case .myJobs(let page):
             return wrap(pageJson(Job.templateList(page: page), page: page))
@@ -125,6 +131,29 @@ final class MockProvider {
         return """
         {"page":\(page),"size":10,"total":\(total),"list":[\(arr)]}
         """
+    }
+
+    private func currentUser() -> User {
+        var user = User.template()
+        user.identityType = currentIdentityType
+        switch currentIdentityType {
+        case 2:
+            user.identityName = "车主身份"
+            user.canPublishJob = false
+            user.canPublishEquipment = true
+            user.canPublishRecruit = true
+        case 3:
+            user.identityName = "驾驶员身份"
+            user.canPublishJob = false
+            user.canPublishEquipment = false
+            user.canPublishRecruit = false
+        default:
+            user.identityName = "老板身份"
+            user.canPublishJob = true
+            user.canPublishEquipment = false
+            user.canPublishRecruit = true
+        }
+        return user
     }
 }
 

@@ -10,6 +10,7 @@ import UIKit
 final class MineHomeViewController: BaseViewController {
 
     private let vm = MineViewModel()
+    private var currentIdentityType = 1
     private let scrollView = UIScrollView()
     private let contentView = UIView()
 
@@ -24,8 +25,8 @@ final class MineHomeViewController: BaseViewController {
     private let editPhoneBtn = UIButton.make("点此修改 >", font: AppFont.small, titleColor: AppColor.textHint)
 
     private let switchTitle = UILabel.make("身份切换", font: AppFont.bodyM, color: AppColor.textMain)
-    private let ownerBtn = IdentitySwitchButton(title: "车主身份", subtitle: "(出租车辆/招聘司机)")
-    private let driverBtn = IdentitySwitchButton(title: "驾驶员身份", subtitle: "(求职司机/应聘司机)")
+    private let firstIdentityButton = IdentitySwitchButton()
+    private let secondIdentityButton = IdentitySwitchButton()
 
     private let manageCard = UIView()
     private let serviceTitle = UILabel.make("服务功能", font: AppFont.bodyM, color: AppColor.textMain)
@@ -42,13 +43,13 @@ final class MineHomeViewController: BaseViewController {
         view.backgroundColor = AppColor.bg
         setupUI()
         bindViewModel()
-        vm.loadProfile()
         Logger.shared.track("mine_home_view")
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        vm.loadProfile()
     }
 
     private func setupUI() {
@@ -72,10 +73,10 @@ final class MineHomeViewController: BaseViewController {
         editPhoneBtn.addTarget(self, action: #selector(editPhoneTapped), for: .touchUpInside)
 
         contentView.addSubview(switchTitle)
-        contentView.addSubview(ownerBtn)
-        contentView.addSubview(driverBtn)
-        ownerBtn.addTarget(self, action: #selector(switchOwner), for: .touchUpInside)
-        driverBtn.addTarget(self, action: #selector(switchDriver), for: .touchUpInside)
+        contentView.addSubview(firstIdentityButton)
+        contentView.addSubview(secondIdentityButton)
+        firstIdentityButton.addTarget(self, action: #selector(identityButtonTapped(_:)), for: .touchUpInside)
+        secondIdentityButton.addTarget(self, action: #selector(identityButtonTapped(_:)), for: .touchUpInside)
 
         manageCard.backgroundColor = .white
         manageCard.layer.cornerRadius = 8.fit
@@ -85,8 +86,14 @@ final class MineHomeViewController: BaseViewController {
             self?.navigationController?.pushViewController(controller, animated: true)
         }
         addManageRow("发布的招聘") { [weak self] in
-            let controller = MyPublishedViewController(initialTab: .recruitments)
-            self?.navigationController?.pushViewController(controller, animated: true)
+            guard let self = self else { return }
+            let controller: UIViewController
+            if self.currentIdentityType == 2 {
+                controller = BossDriverListViewController()
+            } else {
+                controller = MyPublishedViewController(initialTab: .recruitments)
+            }
+            self.navigationController?.pushViewController(controller, animated: true)
         }
 
         contentView.addSubview(serviceTitle)
@@ -128,6 +135,7 @@ final class MineHomeViewController: BaseViewController {
 
     private func render(user: User?) {
         guard let user = user else { return }
+        currentIdentityType = user.identityType
         phoneLabel.text = user.mobile.phoneMasked
         roleLabel.text = user.identityName
 
@@ -145,6 +153,18 @@ final class MineHomeViewController: BaseViewController {
         certifyBtn.setTitleColor(user.realNameVerify ? AppColor.textMain : AppColor.textHint,
                                  for: .normal)
         certifyBtn.isHidden = false
+
+        let availableIdentities = IdentityPresentation.all.filter { $0.type != user.identityType }
+        if availableIdentities.count == 2 {
+            firstIdentityButton.configure(with: availableIdentities[0])
+            secondIdentityButton.configure(with: availableIdentities[1])
+        }
+
+        // 老板可查看活源和招聘；车主只可查看招聘；驾驶员不展示“我的发布”。
+        manageRows[0].0.isHidden = user.identityType != 1
+        manageRows[1].0.isHidden = user.identityType == 3
+        manageCard.isHidden = user.identityType == 3
+        view.setNeedsLayout()
     }
 
     override func viewDidLayoutSubviews() {
@@ -166,15 +186,18 @@ final class MineHomeViewController: BaseViewController {
 
         switchTitle.frame = CGRect(x: pad, y: identityCard.bottom + 16.fit, width: 100.fit, height: 20.fit)
         let btnW = (view.w - pad * 2 - 8.fit) / 2
-        ownerBtn.frame = CGRect(x: pad, y: switchTitle.bottom + 8.fit, width: btnW, height: 56.fit)
-        driverBtn.frame = CGRect(x: ownerBtn.right + 8.fit, y: ownerBtn.y, width: btnW, height: 56.fit)
+        firstIdentityButton.frame = CGRect(x: pad, y: switchTitle.bottom + 8.fit, width: btnW, height: 56.fit)
+        secondIdentityButton.frame = CGRect(x: firstIdentityButton.right + 8.fit, y: firstIdentityButton.y, width: btnW, height: 56.fit)
 
-        manageCard.frame = CGRect(x: pad, y: ownerBtn.bottom + 16.fit, width: view.w - pad * 2, height: CGFloat(manageRows.count) * 50.fit)
-        for (i, (row, _)) in manageRows.enumerated() {
-            (row as? ManageRowView)?.frame = CGRect(x: 0, y: CGFloat(i) * 50.fit, width: manageCard.w, height: 50.fit)
+        let visibleManageRows = manageRows.map(\.0).filter { !$0.isHidden }
+        manageCard.frame = CGRect(x: pad, y: firstIdentityButton.bottom + 16.fit,
+                                  width: view.w - pad * 2,
+                                  height: CGFloat(visibleManageRows.count) * 50.fit)
+        for (index, row) in visibleManageRows.enumerated() {
+            row.frame = CGRect(x: 0, y: CGFloat(index) * 50.fit, width: manageCard.w, height: 50.fit)
         }
 
-        let serviceY = manageCard.bottom + 16.fit
+        let serviceY = manageCard.isHidden ? firstIdentityButton.bottom + 16.fit : manageCard.bottom + 16.fit
         serviceTitle.frame = CGRect(x: pad, y: serviceY, width: 100.fit, height: 20.fit)
         if let serviceRow = contentView.subviews.compactMap({ $0 as? ServiceRowView }).first {
             serviceRow.frame = CGRect(x: pad, y: serviceTitle.bottom + 8.fit, width: view.w - pad * 2, height: 44.fit)
@@ -189,10 +212,22 @@ final class MineHomeViewController: BaseViewController {
         navigationController?.pushViewController(CarOwnerViewController(), animated: true)
     }
     @objc private func editPhoneTapped() { showToast("修改手机号功能开发中") }
-    @objc private func switchOwner() {
-        navigationController?.pushViewController(CarOwnerViewController(), animated: true)
+    @objc private func identityButtonTapped(_ sender: IdentitySwitchButton) {
+        guard let identityType = sender.identityType else { return }
+        firstIdentityButton.isEnabled = false
+        secondIdentityButton.isEnabled = false
+        vm.switchIdentity(to: identityType) { [weak self] result in
+            guard let self = self else { return }
+            self.firstIdentityButton.isEnabled = true
+            self.secondIdentityButton.isEnabled = true
+            switch result {
+            case .success:
+                self.showToast("身份切换成功")
+            case .failure(let error):
+                self.showToast(error.errorDescription ?? "身份切换失败")
+            }
+        }
     }
-    @objc private func switchDriver() { showToast("驾驶员身份功能开发中") }
     private func goContact() {
         navigationController?.pushViewController(ContactServiceViewController(), animated: true)
     }
@@ -202,24 +237,41 @@ final class MineHomeViewController: BaseViewController {
 }
 
 // MARK: - 子组件
+private struct IdentityPresentation {
+    let type: Int
+    let title: String
+    let subtitle: String
+
+    static let all = [
+        IdentityPresentation(type: 1, title: "老板身份", subtitle: "(发布活源/招聘司机)"),
+        IdentityPresentation(type: 2, title: "车主身份", subtitle: "(出租车辆/招聘司机)"),
+        IdentityPresentation(type: 3, title: "驾驶员身份", subtitle: "(求职司机/应聘司机)")
+    ]
+}
+
 private class IdentitySwitchButton: UIControl {
+    private(set) var identityType: Int?
     private let titleLbl = UILabel()
     private let subLbl = UILabel()
 
-    init(title: String, subtitle: String) {
+    init() {
         super.init(frame: .zero)
         backgroundColor = AppColor.bg
         layer.cornerRadius = 8.fit
-        titleLbl.text = title
         titleLbl.font = AppFont.bodyM
         titleLbl.textColor = AppColor.textMain
-        subLbl.text = subtitle
         subLbl.font = AppFont.mini
         subLbl.textColor = AppColor.textHint
         addSubview(titleLbl)
         addSubview(subLbl)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    func configure(with identity: IdentityPresentation) {
+        identityType = identity.type
+        titleLbl.text = identity.title
+        subLbl.text = identity.subtitle
+    }
     override func layoutSubviews() {
         super.layoutSubviews()
         titleLbl.frame = CGRect(x: 12.fit, y: 10.fit, width: w - 24.fit, height: 18.fit)

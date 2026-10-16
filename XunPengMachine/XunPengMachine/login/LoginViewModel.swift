@@ -63,14 +63,11 @@ final class LoginViewModel: BaseViewModel {
         NetworkManager.shared.request(.login(phone: p, code: c, identityType: identityType),
                                       type: TokenBO.self) { [weak self] result in
             DispatchQueue.main.async {
-                self?.loading.onNext(false)
                 switch result {
                 case .success(let bo):
-                    TokenManager.shared.accessToken = bo.accessToken
-                    TokenManager.shared.refreshToken = bo.refreshToken
-                    Logger.shared.track("login_success")
-                    self?.loginSuccess.onNext(true)
+                    self?.finishLogin(with: bo)
                 case .failure(let e):
+                    self?.loading.onNext(false)
                     Toast.shared.show(e.errorDescription ?? "登录失败")
                 }
             }
@@ -83,17 +80,28 @@ final class LoginViewModel: BaseViewModel {
         NetworkManager.shared.request(.fastLogin(token: token, identityType: identityType),
                                       type: TokenBO.self) { [weak self] result in
             DispatchQueue.main.async {
-                self?.loading.onNext(false)
                 switch result {
                 case .success(let bo):
-                    TokenManager.shared.accessToken = bo.accessToken
-                    TokenManager.shared.refreshToken = bo.refreshToken
-                    Logger.shared.track("login_success")
-                    self?.loginSuccess.onNext(true)
+                    self?.finishLogin(with: bo)
                 case .failure(let e):
+                    self?.loading.onNext(false)
                     Toast.shared.show(e.errorDescription ?? "登录失败")
                 }
             }
+        }
+    }
+
+    private func finishLogin(with token: TokenBO) {
+        TokenManager.shared.accessToken = token.accessToken
+        TokenManager.shared.refreshToken = token.refreshToken
+        UserManager.shared.fetchUser { [weak self] result in
+            guard let self = self else { return }
+            self.loading.onNext(false)
+            if case .failure(let error) = result {
+                Logger.shared.error("load user after login failed: \(error.errorDescription ?? "")")
+            }
+            Logger.shared.track("login_success")
+            self.loginSuccess.onNext(true)
         }
     }
 

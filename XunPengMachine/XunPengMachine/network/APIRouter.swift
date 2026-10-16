@@ -28,6 +28,7 @@ enum APIRouter {
     case driverList(page: Int, city: String?)
     case driverDetail(id: String)
     case mineProfile
+    case switchIdentity(identityType: Int)
     case myJobs(page: Int)
     case myDrivers(page: Int)
     case systemMessages(lastId: Int)
@@ -66,6 +67,7 @@ enum APIRouter {
         case .driverList:       return "/post/recruit/page"
         case .driverDetail(let id): return "/post/recruit/get?id=\(id)"
         case .mineProfile:      return "/member/mine/info"
+        case .switchIdentity:   return "/member/mine/identity"
         case .myJobs:           return "/post/job/mine/page"
         case .myDrivers:        return "/post/recruit/mine/page"
         case .systemMessages:   return "/post/message/page"
@@ -98,7 +100,7 @@ enum APIRouter {
              .submitDriverLicenseCertification, .submitVehicleLicenseCertification,
              .submitVehicleCertification:
             return .post
-        case .updateJob, .updateDriver:
+        case .switchIdentity, .updateJob, .updateDriver:
             return .put
         case .deleteJob, .deleteDriver:
             return .delete
@@ -114,6 +116,8 @@ enum APIRouter {
             return ["mobile": phone, "code": code, "identityType": identityType]
         case .fastLogin(let token, let identityType):
             return ["accessToken": token, "identityType": identityType]
+        case .switchIdentity(let identityType):
+            return ["identityType": identityType]
         case .sendCode(let phone):
             return ["mobile": phone, "scene": 1]
         case .refreshToken(let refreshToken):

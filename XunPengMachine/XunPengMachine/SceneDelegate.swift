@@ -17,6 +17,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         win.makeKeyAndVisible()
         self.window = win
 
+        if PrivacyConsentStore.hasAgreed {
+            refreshCurrentUserIfNeeded()
+        }
+
         // 监听 token 失效，强制退出登录
         NotificationCenter.default.addObserver(forName: .forceLogout, object: nil,
                                                queue: .main) { [weak self] _ in
@@ -40,6 +44,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let window = window else { return }
         UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
             window.rootViewController = self.rootVC()
+        }
+        refreshCurrentUserIfNeeded()
+    }
+
+    /// App 启动时若已有登录态，主动刷新一次全局用户资料。
+    private func refreshCurrentUserIfNeeded() {
+        guard TokenManager.shared.isLoggedIn else { return }
+        UserManager.shared.fetchUser { result in
+            if case .failure(let error) = result {
+                Logger.shared.error("refresh user on launch failed: \(error.errorDescription ?? "")")
+            }
         }
     }
 
