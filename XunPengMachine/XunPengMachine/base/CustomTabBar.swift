@@ -17,6 +17,7 @@ class CustomTabBar: UITabBar {
 
     /// 发布按钮（凸起于 TabBar 顶部）
     private let publishButton = UIButton(type: .custom)
+    private var userDisposable: Disposable?
 
     /// 按钮凸出高度
     private let protrude: CGFloat = 22
@@ -27,10 +28,15 @@ class CustomTabBar: UITabBar {
         super.init(frame: frame)
         setupAppearance()
         setupPublishButton()
+        bindCurrentUser()
         // 去除顶部细线
         backgroundView()
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        userDisposable?.dispose()
+    }
 
     private let publishIcon = UIImageView()
     private let publishLabel = UILabel.make("发布", font: AppFont.mini, color: .white, alignment: .center)
@@ -50,6 +56,13 @@ class CustomTabBar: UITabBar {
         publishIcon.contentMode = .scaleAspectFit
         publishButton.addSubview(publishIcon)
         publishButton.addSubview(publishLabel)
+    }
+
+    private func bindCurrentUser() {
+        userDisposable = UserManager.shared.user.subscribe(onNext: { [weak self] user in
+            // 未获取到用户、未选择身份或司机身份均无发布功能。
+            self?.publishButton.isHidden = user == nil || user?.identityType == 0 || user?.identityType == 3
+        })
     }
 
     private func backgroundView() {
@@ -75,6 +88,9 @@ class CustomTabBar: UITabBar {
 
     /// 扩展点击热区：凸出部分也能响应
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard !publishButton.isHidden else {
+            return super.hitTest(point, with: event)
+        }
         // 将点转换到发布按钮坐标系
         let p = convert(point, to: publishButton)
         if publishButton.bounds.contains(p) {
