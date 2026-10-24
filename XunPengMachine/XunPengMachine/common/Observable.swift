@@ -35,6 +35,9 @@ class Observable<Element> {
         self.handler = handler
     }
 
+    // 避免 Swift 6.3.3 在 Release 优化隐式隔离析构函数时崩溃；成员仍由 ARC 释放。
+    nonisolated deinit {}
+
     /// 创建一个可手动赋值、可被订阅的主题（类似 BehaviorSubject / PublishRelay）
     static func create(_ value: Element) -> Subject<Element> { Subject(value) }
 
@@ -78,6 +81,9 @@ final class Subject<Element>: Observable<Element> {
     private var lock = NSLock()
 
     init(_ value: Element) { self.current = value; super.init({ _ in Disposable {} }) }
+
+    // 泛型子类也需显式声明，避免优化器处理隐式隔离析构函数时崩溃。
+    nonisolated deinit {}
 
     /// 推送新值
     func onNext(_ value: Element) {
