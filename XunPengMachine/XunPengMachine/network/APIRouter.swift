@@ -44,12 +44,19 @@ enum APIRouter {
     case cities
     case equipmentTypes
     case feedback(content: String)
+    /// 身份证实名认证
     case identityCertification
     case submitIdentityCertification(params: [String: Any])
+    
+    /// 驾驶证
     case driverLicenseCertification
     case submitDriverLicenseCertification(params: [String: Any])
+    
+    /// 行驶证
     case vehicleLicenseCertification
     case submitVehicleLicenseCertification(params: [String: Any])
+    
+    /// 车辆认证
     case vehicleCertification
     case submitVehicleCertification(params: [String: Any])
 
